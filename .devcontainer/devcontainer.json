@@ -1,0 +1,32 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+	"name": "Node.js & TypeScript",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/typescript-node",
+
+	"runArgs": [
+		"--network=matterbridge_homekit",
+		"--ip=192.168.62.54"
+	],
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	"mounts": [
+		// Mount the local directory to /workspaces in the container.
+		"source=${localWorkspaceFolder}/.matterbridge/,target=/home/node/.matterbridge/,type=bind,consistency=cached"
+	],
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	//"forwardPorts": [ 8283, 5540 ],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "sudo npm install matterbridge -g && npm install && npm run matterbridge:add && sudo npm link matterbridge && npm link",
+
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}
