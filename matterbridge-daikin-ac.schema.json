@@ -1,0 +1,38 @@
+{
+    "title": "Matterbridge Daikin AC plugin",
+    "description": "matterbridge-daikin-ac v1.0.0 by Andras gaal",
+    "type": "object",
+    "required": [],
+    "properties": {
+      "name": {
+        "description": "Plugin name",
+        "type": "string",
+        "readOnly": true
+      },
+      "type": {
+        "description": "Plugin type",
+        "type": "string",
+        "readOnly": true
+      },
+      "daikinIPs": {
+        "description": "IPs of Daikin AC devices to surface",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "selectEntityFrom": "name"
+      },
+      "debug": {
+        "description": "Enable the debug for the plugin (development only)",
+        "type": "boolean",
+        "default": false
+      },
+      "unregisterOnShutdown": {
+        "description": "Unregister all devices on shutdown (development only)",
+        "type": "boolean",
+        "default": false,
+        "ui:widget": "hidden"
+      }
+    }
+  }

@@ -46,8 +46,8 @@
     "node": ">=18.0.0 <19.0.0 || >=20.0.0 <21.0.0 || >=22.0.0"
   },
   "dependencies": {
+    "daikin-controller": "^2.2.2",
     "node-ansi-logger": "^3.0.1",
-    "node-lox-ws-api": "^0.4.5",
     "node-persist-manager": "^1.0.8"
   },
   "devDependencies": {
