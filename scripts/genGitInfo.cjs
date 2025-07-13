@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { execSync } = require('child_process');
-const fs = require('fs');
+const { execSync } = require('node:child_process');
+const fs = require('node:fs');
 const branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
 const commit = execSync('git rev-parse HEAD').toString().trim();
 
