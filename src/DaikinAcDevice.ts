@@ -1,6 +1,8 @@
-import { BasicInfoResponse, ControlInfo, DaikinAC, SensorInfoResponse } from "daikin-controller";
-import { DaikinAcPlatform } from "./platform.js";
-import { DaikinAcMode } from "./models/DaikinAcMode.js";
+import { BasicInfoResponse, ControlInfo, DaikinAC, SensorInfoResponse } from 'daikin-controller';
+
+import { DaikinAcPlatform } from './platform.js';
+import { DaikinAcMode } from './models/DaikinAcMode.js';
+import { DaikinAcState } from './models/DaikinAcState.js';
 
 class DaikinAcDevice {
     private ip: string;
@@ -8,6 +10,12 @@ class DaikinAcDevice {
     private platform: DaikinAcPlatform;
     private daikinDevice!: DaikinAC;
     private isConnected: boolean = false;
+    public currentState: DaikinAcState | undefined = undefined;
+    public name: string = '';
+    private powerUpdatedCallback: ((power: boolean) => void) | undefined;
+    private indoorTempUpdatedCallback: ((indorrTemp: number) => void) | undefined;
+    private targetTempUpdatedCallback: ((targetTemp: number) => void) | undefined;
+    private modeUpdatedCallback: ((power: boolean, mode: number) => void) | undefined;
 
     constructor(platform: DaikinAcPlatform, ip: string, options: { useGetToPost?: boolean } = {}) {
         this.ip = ip;
@@ -24,19 +32,6 @@ class DaikinAcDevice {
                 }
             });
         });
-
-    }
-
-    public async switchOn() {
-        await this.setACControlInfo({ power: true });
-    }
-
-    public async switchOff() {
-        await this.setACControlInfo({ power: false });
-    }
-
-    public async setTargetTemperature(newValue: number) {
-        await this.setACControlInfo({ targetTemperature: newValue });
     }
 
     public async connect() {
@@ -48,6 +43,66 @@ class DaikinAcDevice {
             this.platform.log.error(`Failed to connect to Daikin AC:`, error);
             throw error;
         }
+        const info = await this.getCommonBasicInfoAsync();
+        this.name = info.name ?? `Daikin AC ${this.ip}`;
+        await this.getACControlInfo();
+        await this.getACControlInfo();
+        this.updateCurrentState();
+    }
+
+    public startUpdates(
+        powerUpdatedCallback: (power: boolean) => void,
+        modeUpdatedCallback: (power: boolean, mode: number) => void,
+        indoorTempUpdatedCallback: (indoorTemp: number) => void,
+        targetTempUpdatedCallback: (targetTemp: number) => void,
+    ) {
+        this.powerUpdatedCallback = powerUpdatedCallback;
+        this.modeUpdatedCallback = modeUpdatedCallback;
+        this.indoorTempUpdatedCallback = indoorTempUpdatedCallback;
+        this.targetTempUpdatedCallback = targetTempUpdatedCallback;
+        this.daikinDevice.setUpdate(15000, this.calculateDelta.bind(this));
+    }
+
+    private calculateDelta() {
+        if (this.currentState?.power !== this.daikinDevice.currentACControlInfo?.power) {
+            this.platform.log.info(`Power changed from ${this.currentState?.power} to ${this.daikinDevice.currentACControlInfo?.power}`);
+            if (this.powerUpdatedCallback && this.daikinDevice.currentACControlInfo?.power !== undefined) {
+                this.powerUpdatedCallback(this.daikinDevice.currentACControlInfo.power);
+            }
+        }
+        if (this.currentState?.mode !== this.daikinDevice.currentACControlInfo?.mode) {
+            this.platform.log.info(`Mode changed from ${this.currentState?.mode} to ${this.daikinDevice.currentACControlInfo?.mode}`);
+            if (this.modeUpdatedCallback && this.daikinDevice.currentACControlInfo?.power !== undefined && this.daikinDevice.currentACControlInfo?.mode !== undefined) {
+                this.modeUpdatedCallback(this.daikinDevice.currentACControlInfo.power, this.daikinDevice.currentACControlInfo.mode);
+            }
+        }
+        if (this.currentState?.indoorTemperature !== this.daikinDevice.currentACSensorInfo?.indoorTemperature) {
+            this.platform.log.info(`Indoor temperature changed from ${this.currentState?.indoorTemperature} to ${this.daikinDevice.currentACSensorInfo?.indoorTemperature}`);
+            if (this.indoorTempUpdatedCallback && this.daikinDevice.currentACSensorInfo?.indoorTemperature !== undefined) {
+                this.indoorTempUpdatedCallback(this.daikinDevice.currentACSensorInfo.indoorTemperature);
+            }
+        }
+        if (this.currentState?.targetTemperature !== this.daikinDevice.currentACControlInfo?.targetTemperature) {
+            this.platform.log.info(`Target temperature changed from ${this.currentState?.targetTemperature} to ${this.daikinDevice.currentACControlInfo?.targetTemperature}`);
+            if (
+                this.targetTempUpdatedCallback &&
+                this.daikinDevice.currentACControlInfo?.targetTemperature !== undefined &&
+                this.daikinDevice.currentACControlInfo?.targetTemperature !== 'M'
+            ) {
+                this.targetTempUpdatedCallback(this.daikinDevice.currentACControlInfo.targetTemperature);
+            }
+        }
+        this.updateCurrentState();
+    }
+
+    private updateCurrentState() {
+        if (!this.currentState) {
+            this.currentState = new DaikinAcState();
+        }
+        this.currentState.indoorTemperature = this.daikinDevice.currentACSensorInfo?.indoorTemperature;
+        this.currentState.targetTemperature = this.daikinDevice.currentACControlInfo?.targetTemperature;
+        this.currentState.power = this.daikinDevice.currentACControlInfo?.power;
+        this.currentState.mode = this.daikinDevice.currentACControlInfo?.mode;
     }
 
     public async getCommonBasicInfoAsync(): Promise<BasicInfoResponse> {
@@ -61,7 +116,11 @@ class DaikinAcDevice {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(data!);
+                    if (data === null) {
+                        reject(new Error('No data received from Daikin AC'));
+                        return;
+                    }
+                    resolve(data);
                 }
             });
         });
@@ -78,7 +137,11 @@ class DaikinAcDevice {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(data!);
+                    if (data === null) {
+                        reject(new Error('No data received from Daikin AC'));
+                        return;
+                    }
+                    resolve(data);
                 }
             });
         });
@@ -95,14 +158,14 @@ class DaikinAcDevice {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(data!);
+                    if (data === null) {
+                        reject(new Error('No data received from Daikin AC'));
+                        return;
+                    }
+                    resolve(data);
                 }
             });
         });
-    }
-
-    public async setMode(mode: DaikinAcMode) {
-        await this.setACControlInfo({ mode: mode });
     }
 
     public async getACSensorInfo(): Promise<SensorInfoResponse> {
@@ -116,12 +179,31 @@ class DaikinAcDevice {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(data!);
+                    if (data === null) {
+                        reject(new Error('No data received from Daikin AC'));
+                        return;
+                    }
+                    resolve(data);
                 }
             });
         });
     }
 
+    public async setMode(mode: DaikinAcMode) {
+        await this.setACControlInfo({ mode: mode });
+    }
+
+    public async switchOn() {
+        await this.setACControlInfo({ power: true });
+    }
+
+    public async switchOff() {
+        await this.setACControlInfo({ power: false });
+    }
+
+    public async setTargetTemperature(newValue: number) {
+        await this.setACControlInfo({ targetTemperature: newValue });
+    }
 }
 
-export { DaikinAcDevice }
+export { DaikinAcDevice };
