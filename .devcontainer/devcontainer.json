@@ -13,7 +13,8 @@
 	// "features": {},
 	"mounts": [
 		// Mount the local directory to /workspaces in the container.
-		"source=${localWorkspaceFolder}/.matterbridge/,target=/home/node/.matterbridge/,type=bind,consistency=cached"
+		"source=${localWorkspaceFolder}/.matterbridge/,target=/home/node/.matterbridge/,type=bind,consistency=cached",
+		"type=bind,source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,readonly"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	//"forwardPorts": [ 8283, 5540 ],
